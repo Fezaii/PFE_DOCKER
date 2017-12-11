@@ -1,0 +1,7 @@
+
+petitroll/tcs-rpc from tomee:8-jre-7.0.3-plus
+petitroll/esb from openjdk:8-jdk-alpine
+petitroll/cadvisor from google/cadvisor
+petitroll/tcs-bus from petitroll/esb
+petitroll/tcs-doc from tomee:8-jre-7.0.3-plus
+petitroll/tcs-rest from tomee:8-jre-7.0.3-plus
