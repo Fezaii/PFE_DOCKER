@@ -7,7 +7,7 @@ import org.neo4j.driver.v1.StatementResult;
 import org.neo4j.driver.v1.Transaction;
 import org.neo4j.driver.v1.TransactionWork;
 import org.neo4j.driver.v1.*;
-
+import java.util.concurrent.TimeoutException;
 import java.io.*;
 import java.io.File;
 import java.rmi.RemoteException;
@@ -220,7 +220,7 @@ public class Worker implements AutoCloseable
         final ArrayList<Fichier> list1 = listFilesForFolder(folder);
         final ArrayList<Build> list2 = build(folder1);
         final ArrayList<From> list3 = from(folder1);
-        x.matchAllFileNode(list1);
+        //x.matchAllFileNode(list1);
 
         for(Fichier f : list1){
             x.addFile(f);
@@ -243,27 +243,7 @@ public class Worker implements AutoCloseable
 
 
 
-    public  void  matchAllFileNode( ArrayList<Fichier> list)
-    {
-        //System.out.println("tourneneeeeeeeeeeeeeeee");
-        try ( Session session = driver.session() )
-        {
-            StatementResult result = session.run("MATCH (a:DockerFile) RETURN a.name AS name");
-            while ( result.hasNext() )
-            {
-                Record record = result.next();
-                //for(Fichier ff : list) {
-                for (int i = 0; i < list.size();i++){
-                    if (list.get(i).getName().equals(record.get("name").asString())) {
-                        list.remove(list.get(i));
-                        //System.out.println("HELLO");
-                    }
-                }
-            }
 
-        }
-
-    }
 
 
 
@@ -339,9 +319,75 @@ public class Worker implements AutoCloseable
 
 
 
-    public static void getEach(int since) throws ParseException, FileNotFoundException{
+
+
+
+
+
+
+
+
+public static boolean isDockerfile(String s){
+    String[] tokens = s.split("/");
+    for (int j = 0; j < tokens.length; j++){
+        if(tokens[j].equals("Dockerfile")){
+            return  true;
+        }
+    }
+    return false;
+}
+
+
+
+
+
+
+public static  void getGitdockerfile(String repo) throws IOException{
+        System.out.println(repo);
+       ArrayList<String>  l = alldockerfile(repo);
+       if(l.isEmpty()){
+           System.out.println("ce repositorie ne contient pas de dockerfile");
+           return;
+       }
+    final Worker example = new Worker("bolt://localhost:7687", "neo4j", "ahmed");
+       for(String str : l){
+
+           //if(getcontents(repo,str) != null) {
+               //example.addFile(getcontents(repo, str));
+               //System.out.println("DockerFile added");
+           //}
+           //getcontents(repo,str).ToString();
+       }
+    example.close();
+}
+
+
+    public static String hashString(String s){
+
+        byte[] hash = null;
+        try{
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            hash = md.digest(s.getBytes());
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace(); }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < hash.length; ++i) {
+            String hex = Integer.toHexString(hash[i]);
+            if (hex.length() == 1) {
+                sb.append(0);
+                sb.append(hex.charAt(hex.length() - 1));
+            } else {
+                sb.append(hex.substring(hex.length() - 2));
+            }
+        }
+        return sb.toString();
+    }
+
+
+
+    public static void getEach(int since,ArrayList<String> l) throws  FileNotFoundException{
         //String url = "https://api.github.com/repositories?since="+since+"ccess_token=ea322f284c983ae4653804ec53c779c2fdc6a233a";
-        String url = "https://api.github.com/repositories?since="+since+"&access_token=ea322f284c983ae4653804ec53c779c2fdc6a233";
+        String url = "https://api.github.com/repositories?since="+since+"&access_token=fb243b822b1608cb42f688d4e0fa074f3540da64";
         try {
             CloseableHttpClient httpClient = HttpClientBuilder.create().build();
             HttpGet request = new HttpGet(url);
@@ -358,18 +404,16 @@ public class Worker implements AutoCloseable
                 JsonObject jo = (JsonObject) jarr.get(i);
                 String fullName = jo.get("full_name").toString();
                 fullName = fullName.substring(1, fullName.length()-1);
-                listrepos.add(fullName);
+                //return fullName;
+                l.add(fullName);
                 //System.out.println(fullName);
             }
 
         } catch (IOException ex) {
             System.out.println(ex.getStackTrace());
         }
+        //return null;
     }
-
-
-
-
 
 
 
@@ -395,11 +439,9 @@ public class Worker implements AutoCloseable
     }
 
 
-
-
-    public static ArrayList<String> alldockerfile(String ch) throws ParseException, FileNotFoundException{
+    public static ArrayList<String> alldockerfile(String ch){
         ArrayList<String> dockerfilelist = new ArrayList<String>();
-        String url = "https://api.github.com/repos/"+ch+"/git/trees/master?recursive=1&access_token=ea322f284c983ae4653804ec53c779c2fdc6a233";
+        String url = "https://api.github.com/repos/"+ch+"/git/trees/master?recursive=1&access_token=fb243b822b1608cb42f688d4e0fa074f3540da64";
         try {
             CloseableHttpClient httpClient = HttpClientBuilder.create().build();
             HttpGet request = new HttpGet(url);
@@ -422,6 +464,7 @@ public class Worker implements AutoCloseable
                     if (isDockerfile(fullName)) {
                         dockerfilelist.add(fullName);
                         //System.out.println(fullName);
+                        //return fullName;
                     }
 
 
@@ -434,21 +477,7 @@ public class Worker implements AutoCloseable
         return  dockerfilelist;
 
     }
-
-
-
-public static boolean isDockerfile(String s){
-    String[] tokens = s.split("/");
-    for (int j = 0; j < tokens.length; j++){
-        if(tokens[j].equals("Dockerfile")){
-            return  true;
-        }
-    }
-    return false;
-}
-
-
-public static  Fichier getcontents(String repo,String f) throws IOException, ParseException, NoSuchAlgorithmException {
+    public static  String getcontents(String repo,String f) throws IOException {
         String link = "https://raw.githubusercontent.com/"+repo+"/master/"+f;
         URL crunchifyUrl = new URL(link);
         HttpURLConnection crunchifyHttp = (HttpURLConnection) crunchifyUrl.openConnection();
@@ -466,67 +495,13 @@ public static  Fichier getcontents(String repo,String f) throws IOException, Par
         }
         InputStream crunchifyStream = crunchifyHttp.getInputStream();
         String crunchifyResponse = crunchifyGetStringFromStream(crunchifyStream);
-        String delims = "[\n\\ ]+";
-        String[] tokens = crunchifyResponse.split(delims);
-        for (int i = 0; i < tokens.length; i++){
-            if (tokens[i].equals("from")||tokens[i].equals("FROM")){
-                //System.out.println("DockerFile Added");
-                return (new Fichier("Dockerfile",tokens[i + 1],hashString(crunchifyResponse),repo,f));
-
-                }
-        }
-
-        System.out.println("fichier vide");
-        return null;
-}
 
 
-
-public static  void getGitdockerfile(String repo) throws IOException, ParseException, NoSuchAlgorithmException {
-        System.out.println(repo);
-       ArrayList<String>  l = alldockerfile(repo);
-       if(l.isEmpty()){
-           System.out.println("ce repositorie ne contient pas de dockerfile");
-           return;
-       }
-    final Worker example = new Worker("bolt://localhost:7687", "neo4j", "ahmed");
-       for(String str : l){
-
-           if(getcontents(repo,str) != null) {
-               example.addFile(getcontents(repo, str));
-               System.out.println("DockerFile added");
-           }
-           //getcontents(repo,str).ToString();
-       }
-       example.close();
-}
-
-
-    public static String hashString(String s) throws NoSuchAlgorithmException {
-
-        byte[] hash = null;
-        try{
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            hash = md.digest(s.getBytes());
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace(); }
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < hash.length; ++i) {
-            String hex = Integer.toHexString(hash[i]);
-            if (hex.length() == 1) {
-                sb.append(0);
-                sb.append(hex.charAt(hex.length() - 1));
-            } else {
-                sb.append(hex.substring(hex.length() - 2));
-            }
-        }
-        return sb.toString();
+        //System.out.println("fichier vide");*/
+        return crunchifyResponse;
     }
 
-
-
-
-    public static void main(String... args) throws IOException, ParseException, NoSuchAlgorithmException {
+    public static void main(String... args) throws IOException,NoSuchAlgorithmException,TimeoutException{
 
         /*Worker x = new Worker("bolt://localhost:7687", "neo4j", "ahmed");
         final ArrayList<Fichier> list1 = listFilesForFolder(folder);
@@ -546,7 +521,10 @@ public static  void getGitdockerfile(String repo) throws IOException, ParseExcep
 
 
 
-
+    Producer producteur1 = new Producer(103945200,103945600);
+    //Producer producteur2 = new Producer(103945600,103946200);
+    producteur1.run();
+    //producteur2.run();
 
 
 
@@ -557,7 +535,7 @@ public static  void getGitdockerfile(String repo) throws IOException, ParseExcep
 
 
         //------------GIT-----------------------------------------------------
-        for (int i = 103945200; i < 103946200;) {
+        /*for (int i = 103945200; i < 103945200;) {
             getEach(i);
             i = i + 200;
         }
